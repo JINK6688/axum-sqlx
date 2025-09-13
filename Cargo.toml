@@ -1,0 +1,71 @@
+[workspace]
+members = [
+  "crates/db",
+  "crates/service",
+  "crates/middleware",
+  "crates/api",
+  "crates/configure",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["jink6688@gmail.com"]
+version = "0.1.0"
+
+[workspace.dependencies]
+# async/runtime
+axum = { version = "0.7", features = ["macros", "tracing"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "compression-br"] }
+
+# db
+sqlx = { version = "0.7", features = [
+  "runtime-tokio-rustls",
+  "postgres",
+  "macros",
+  "migrate",
+  "chrono",
+  "uuid",
+] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# serde & config
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+config = { version = "0.14.1", features = ["json", "yaml"] }
+dotenvy = "0.15"
+
+# tracing/logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["std", "env-filter", "fmt", "json", "chrono"] }
+tracing-appender = "0.2.3"
+# 用于将 Rust 标准库中的 log 宏记录的日志与 tracing 库的日志记录机制进行集成，使得使用 log 宏编写的旧有日志记录代码能够无缝地与基于 tracing 的新日志系统协同工作，方便在项目迁移或者同时使用两种日志记录方式的场景下进行统一管理和输出
+tracing-log = "0.2.0"
+# 用于将 tracing 库产生的日志按照 Bunyan 格式进行格式化的库
+tracing-bunyan-formatter = "0.3.10"
+
+# 链路追踪
+opentelemetry = "0.29.1"
+opentelemetry-otlp = {version = "0.29.0", features = [
+  "trace",
+  "metrics",
+  "grpc-tonic",
+]}
+opentelemetry_sdk = {version = "0.29.0", features = ["rt-tokio"]}
+tracing-opentelemetry = "0.30.0"
+
+# error handling
+anyhow = "1"
+thiserror = "1"
+once_cell = "1"
+
+#jwt
+jsonwebtoken = "8"
+
+#枚举chuli
+strum = { version = "0.24", features = ["derive"] }

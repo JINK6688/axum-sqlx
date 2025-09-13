@@ -1,0 +1,23 @@
+[package]
+name = "configure"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+config.workspace = true
+dotenvy.workspace = true
+anyhow.workspace = true
+strum.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+tracing-log.workspace = true
+tracing-bunyan-formatter.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
+tracing-opentelemetry.workspace = true
+once_cell.workspace = true

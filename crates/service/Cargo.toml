@@ -1,0 +1,14 @@
+[package]
+name = "service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+db.path = "../db"
+db.package = "db"
+anyhow.workspace = true
+tracing.workspace = true
+serde.workspace = true
+uuid.workspace = true
