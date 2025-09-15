@@ -23,5 +23,5 @@ dotenvy.workspace = true
 # Local Crates
 service = { path = "../service", package = "service" }
 middleware = { path = "../middleware", package = "middleware" }
-db = { path = "../db", package = "db" }
+repositroy = { path = "../repositroy", package = "repositroy" }
 configure = { path = "../configure", package = "configure" }

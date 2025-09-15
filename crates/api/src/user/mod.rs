@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use db::User;
+use repositroy::User;
 use serde::{Deserialize, Serialize};
 use service::AppState;
 use tracing::error;
@@ -25,8 +25,8 @@ pub struct UserRes {
     created_at: String,
 }
 
-impl From<db::User> for UserRes {
-    fn from(u: db::User) -> Self {
+impl From<User> for UserRes {
+    fn from(u: User) -> Self {
         Self {
             id: u.id.to_string(),
             email: u.email,

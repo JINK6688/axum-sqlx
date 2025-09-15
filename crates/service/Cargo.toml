@@ -6,8 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-db.path = "../db"
-db.package = "db"
+repositroy = { path = "../repositroy", package = "repositroy" }
 anyhow.workspace = true
 tracing.workspace = true
 serde.workspace = true

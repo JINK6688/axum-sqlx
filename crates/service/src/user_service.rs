@@ -1,5 +1,5 @@
 use anyhow::Result;
-use db::{
+use repositroy::{
     entity::user::{create_user, del_user, get_user, list_users, update_user, User},
     PgPool,
 };

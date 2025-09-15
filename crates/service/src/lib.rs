@@ -1,5 +1,5 @@
 pub mod user_service;
-use db::PgPool;
+use repositroy::PgPool;
 
 #[derive(Clone)]
 pub struct Services {
