@@ -7,8 +7,8 @@ use axum::{
     Router,
 };
 use configure::{log_tracing, AppConfig, CONFIG};
-use repositroy::{get_db_pool, init_database};
 use middleware::{ctx::LoginUser, jwt::Claims};
+use repositroy::{get_db_pool, init_database};
 use service::{AppState, Services};
 use tokio::signal;
 use tracing::info;

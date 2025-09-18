@@ -11,9 +11,14 @@ use tracing_subscriber::{
     EnvFilter, Registry,
 };
 
+use crate::get_root_dir;
+
 pub fn init() -> WorkerGuard {
+    let root_dir = get_root_dir().expect("Failed to get root dir");
+    let log_dir = root_dir.join("logs");
+
     // 创建按天轮转的文件日志记录器
-    let file_appender = RollingFileAppender::new(Rotation::HOURLY, "logs", "app.log");
+    let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "app.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     // 从环境变量获取日志级别，默认为info

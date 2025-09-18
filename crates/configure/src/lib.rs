@@ -31,7 +31,7 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn read() -> Result<AppConfig, ConfigError> {
         let config_dir =
-            get_setting_dir().map_err(|e| ConfigError::Message(e.to_string()))?.join("setting");
+            get_root_dir().map_err(|e| ConfigError::Message(e.to_string()))?.join("setting");
 
         let env_source = get_env_source("APP");
         info!("config dir: {:#?}", config_dir);
@@ -55,7 +55,7 @@ impl AppConfig {
     }
 }
 
-pub fn get_setting_dir() -> Result<PathBuf, ConfigError> {
+pub fn get_root_dir() -> Result<PathBuf, ConfigError> {
     let mut current = std::env::current_dir().map_err(|e| ConfigError::Message(e.to_string()))?;
     while current.parent().is_some() {
         if current.join("Cargo.lock").exists() {
