@@ -1,21 +1,13 @@
+mod route;
 mod user;
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-    response::{IntoResponse, Response},
-    routing::{get, post},
-    Router,
-};
-use configure::{log_tracing, AppConfig, CONFIG};
-use middleware::{ctx::LoginUser, jwt::Claims};
+use configure::{error::AppError, log_tracing, AppConfig, CONFIG};
 use repositroy::{get_db_pool, init_database};
 use service::{AppState, Services};
 use tokio::signal;
 use tracing::info;
-use user::*;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), AppError> {
     // Initialize tracing
     let _guard = log_tracing::init();
 
@@ -28,15 +20,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState { services };
 
     // Routes
-    let app = Router::new()
-        .route("/health", get(health))
-        .route("/health2", get(health2))
-        .route("/users", post(create_user).get(list_users).put(update_user))
-        .route("/users/:id", get(get_user).delete(del_user))
-        .fallback(fallback_handler)
-        .with_state(state);
-    // Apply middleware
-    let app = middleware::apply(app.clone());
+    let app = route::api_route(state);
 
     let server = app_config.server;
     let addr = server.get_socket_addr()?;
@@ -68,20 +52,4 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
-}
-
-/// Fallback handler for unmatched routes
-async fn fallback_handler(req: Request<Body>) -> Response {
-    let not_found = format!("No route for {}", req.uri());
-    (StatusCode::NOT_FOUND, not_found).into_response()
-}
-
-async fn health() -> String {
-    let claims = Claims::build("sub", "1", "test");
-    let token = claims.to_token().unwrap();
-    token
-}
-
-async fn health2(user: LoginUser) -> String {
-    format!("Hello, {}! Your user_id is {}. Token exp: {}", user.username, user.user_id, user.exp)
 }

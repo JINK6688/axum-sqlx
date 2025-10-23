@@ -1,12 +1,20 @@
-use std::task::{Context, Poll};
+use std::{
+    convert::Infallible,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use axum::{http::Request, response::Response};
+use axum::{
+    http::Request,
+    response::{IntoResponse, Response},
+};
 use chrono::Utc;
-/// 你的全局配置模块
-use configure::CONFIG;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
+use configure::{error::AppError, CONFIG};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use tower::{Layer, Service};
+use tracing::error;
 
 use crate::ctx::LoginUser;
 
@@ -39,9 +47,7 @@ impl Claims {
         header.alg = jsonwebtoken::Algorithm::HS256;
         jsonwebtoken::encode(&header, self, &encoding_key)
     }
-}
 
-impl Claims {
     pub fn to_login_user(&self) -> LoginUser {
         LoginUser { user_id: self.user_id.clone(), username: self.username.clone(), exp: self.exp }
     }
@@ -65,7 +71,7 @@ impl<S> Layer<S> for JwtLayer {
     }
 }
 
-/// JWT中间件实现
+/// JWT 中间件实现
 #[derive(Clone)]
 pub struct JwtMiddleware<S> {
     inner: S,
@@ -73,58 +79,49 @@ pub struct JwtMiddleware<S> {
 
 impl<S, ReqBody> Service<Request<ReqBody>> for JwtMiddleware<S>
 where
-    S: Service<Request<ReqBody>, Response = Response> + Clone + Send + Sync + 'static,
+    S: Service<Request<ReqBody>, Response = Response, Error = Infallible> + Clone + Send + 'static,
     S::Future: Send + 'static,
     ReqBody: Send + 'static,
 {
     type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, mut req: Request<ReqBody>) -> Self::Future {
-        // 提取token并校验
-        let auth_header =
-            req.headers().get(axum::http::header::AUTHORIZATION).and_then(|v| v.to_str().ok());
+        let mut inner = self.inner.clone();
 
-        let token = match auth_header {
-            Some(header) if header.starts_with("Bearer ") => &header[7..],
-            _ => "",
-        };
+        Box::pin(async move {
+            let token = req
+                .headers()
+                .get(axum::http::header::AUTHORIZATION)
+                .and_then(|h| h.to_str().ok())
+                .and_then(|h| h.strip_prefix("Bearer ").or_else(|| Some(h)));
 
-        let mut valid_user: Option<LoginUser> = None;
+            if token.is_none() {
+                let resp = AppError::Unauthorized("Missing token".into()).into_response();
+                return Ok(resp);
+            }
 
-        if !token.is_empty() {
-            let jwt_secret = &CONFIG.jwt.secret;
-            let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
+            let decoding_key = DecodingKey::from_secret(CONFIG.jwt.secret.as_bytes());
             let validation = Validation::new(Algorithm::HS256);
-            let token_data: Result<TokenData<Claims>, _> =
-                decode::<Claims>(token, &decoding_key, &validation);
 
-            match token_data {
+            match decode::<Claims>(token.unwrap(), &decoding_key, &validation) {
                 Ok(data) => {
-                    valid_user = Some(data.claims.to_login_user());
+                    let user = data.claims.to_login_user();
+                    req.extensions_mut().insert(user);
+                    inner.call(req).await
                 }
                 Err(e) => {
-                    if let jsonwebtoken::errors::ErrorKind::ExpiredSignature = e.kind() {
-                        tracing::warn!("JWT token expired");
-                        // 这里可以考虑直接返回 401 响应，或者在 request
-                        // 扩展中标记为过期
-                    } else {
-                        tracing::error!("JWT decode error: {:?}", e);
-                    }
+                    let resp =
+                        AppError::Unauthorized(format!("Invalid token: {e}")).into_response();
+                    error!("JWT Error: {}", e);
+                    Ok(resp)
                 }
             }
-        }
-
-        // 将LoginUser注入request扩展
-        if let Some(user) = valid_user {
-            req.extensions_mut().insert(user);
-        }
-
-        self.inner.call(req)
+        })
     }
 }

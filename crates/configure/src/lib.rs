@@ -1,5 +1,6 @@
 pub mod database;
 pub mod env;
+pub mod error;
 pub mod jwt;
 pub mod log_tracing;
 pub mod profile;
