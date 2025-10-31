@@ -13,7 +13,7 @@ async fn main() -> Result<(), AppError> {
 
     // Load configuration
     let app_config: AppConfig = CONFIG.clone();
-    //初始化数据库连接池
+    //init database connect
     init_database().await;
     let pool = get_db_pool().clone();
     let services = Services::new(pool);

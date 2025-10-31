@@ -72,6 +72,41 @@ Environment variables
   - `PORT` — HTTP server port (if the api crate supports it)
 - Do not commit secrets to version control.
 
+Settings (configuration files)
+
+This project supports a simple configuration directory `setting/` at the repository root. The `crates/configure` crate loads configuration by merging sources in this order (later sources override earlier ones):
+
+1. `setting/default.toml` — base defaults  
+2. `setting/{profile}.toml` — profile-specific overrides (e.g. `development.toml`, `production.toml`, `test.toml`)  
+3. Environment variables — parsed with the `APP` prefix and used to override values
+
+Key details:
+- The configuration loader is implemented in `crates/configure/src/lib.rs`. It locates the repository root by searching parent directories for `Cargo.lock`, then reads files from the `setting` folder there.
+- The active profile is determined by the `ENVIRONMENT` environment variable. If `ENVIRONMENT` is unset, the default profile is `development`.
+- Environment variables use the `APP` prefix. Use double underscores `__` to represent nested keys. For example:
+  - `APP__DATABASE__HOST=127.0.0.1` sets `database.host`
+  - `APP__SERVER__PORT=8080` sets `server.port`
+  - `APP__JWT__SECRET=supersecret` sets `jwt.secret`
+- Environment variables are parsed into native types when possible (e.g., integers, booleans).
+
+Example: how the loader composes sources (simplified)
+```axum-sqlx/crates/configure/src/lib.rs#L1-120
+let config = config::Config::builder()
+    .add_source(config::File::with_name(&format!("{}/default.toml", config_dir)))
+    .add_source(config::File::with_name(&format!("{}/{}", config_dir, profile_filename)))
+    .add_source(get_env_source("APP"))
+    .build()?;
+config.try_deserialize()
+```
+
+Files included under `setting/` in this repository (examples):
+- `setting/default.toml` — base defaults
+- `setting/development.toml` — development overrides (server host/port, database, jwt, etc.)
+- `setting/production.toml` — production overrides
+- `setting/test.toml` — test overrides
+
+Security note: example TOML files in `setting/` are intended for local development. Do not commit production secrets or real credentials into repository files; prefer environment variables or a secrets manager for production.
+
 Migration files
 - Location: `crates/migrations`
 - Example migration that is included in the repository (creates a `users` table):

@@ -127,18 +127,104 @@ cargo fmt
 
 ---
 
-## 配置说明（.env）
-项目使用 `.env` 风格的环境变量（仓库根含 `.env.example`），请复制并修改为 `.env`。
+## 配置说明（.env）与 Settings 目录
 
-常见变量（视项目实现而定）：
+本项目既支持使用 `.env`（`.env.example` 参照）也支持基于 `setting/` 目录的 TOML 配置。常见做法是：把不含 secrets 的默认配置放入 `setting/*.toml`，把敏感或部署环境相关的值通过环境变量注入（或通过 CI/secret manager）。
+
+复制 `.env.example` 为 `.env` 并填写必要项，常见变量包括（以仓库中的 `.env.example` 为准）：
 - `DATABASE_URL` — PostgreSQL 连接字符串，例如：`postgres://user:password@localhost/axum_app`
 - `RUST_LOG` — 日志级别（例如 `info`, `debug`）
 - `PORT` — 服务监听端口（如果 `api` crate 支持配置）
-- 其他自定义配置请查看 `crates/configure` 及各 crate 的 README / 文档
 
-注意：不要将含有真实凭据的 `.env` 提交到版本控制。
+注意：不要将含有真实凭据的 `.env` 或包含 secrets 的 `setting/*.toml` 提交到版本控制。生产环境请使用 secrets 管理方案或环境变量。
 
----
+### Settings 目录说明（`setting/`）
+仓库中提供了 `setting/` 目录用于将配置管理为 TOML 文件（示例：`default.toml`、`development.toml`、`production.toml`、`test.toml`）。`crates/configure` 会按如下顺序合并配置（后者覆盖前者）：
+
+1. `setting/default.toml` — 基础默认配置  
+2. `setting/{profile}.toml` — profile 特定的覆盖（例如 `development.toml`, `production.toml`, `test.toml`）  
+3. 环境变量（以 `APP` 为前缀） — 环境变量优先级最高，用于覆盖文件中的配置
+
+配置加载器的核心在 `crates/configure`，实现读取仓库根目录下的 `setting` 文件夹（它通过向上查找 `Cargo.lock` 确定仓库根），然后按上面的顺序合并。例如，核心读取逻辑（已简化）如下：
+
+```axum-sqlx/crates/configure/src/lib.rs#L1-120
+pub fn read() -> Result<AppConfig, ConfigError> {
+    let config_dir = get_root_dir()?.join("setting");
+
+    let env_source = get_env_source("APP");
+    let profile = get_profile()?;
+    let profile_filename = format!("{profile}.toml");
+
+    let config = config::Config::builder()
+        .add_source(config::File::with_name(&format!("{}/default.toml", config_dir.to_string_lossy())))
+        .add_source(config::File::with_name(&format!("{}/{}", config_dir.to_string_lossy(), profile_filename)))
+        .add_source(env_source)
+        .build()?;
+    config.try_deserialize()
+}
+```
+
+### Profile 与环境变量覆盖规则
+- Profile 由环境变量 `ENVIRONMENT` 控制（例如 `development`、`production`、`test`）。若未设置，默认使用 `development`。实现位于 `crates/configure/src/env.rs`：
+```axum-sqlx/crates/configure/src/env.rs#L1-40
+pub fn get_profile() -> Result<Profile, config::ConfigError> {
+    dotenvy::dotenv().ok();
+    std::env::var("ENVIRONMENT")
+        .map(|env| Profile::from_str(&env).map_err(|e| config::ConfigError::Message(e.to_string())))
+        .unwrap_or_else(|_e| Ok(Profile::Development))
+}
+```
+
+- 环境变量覆盖使用 `APP` 前缀，`__`（双下划线）表示嵌套配置键。例如：
+  - `APP__DATABASE__HOST=127.0.0.1` 会覆盖 `database.host`
+  - `APP__SERVER__PORT=8080` 会覆盖 `server.port`
+  - `APP__JWT__SECRET=supersecret` 会覆盖 `jwt.secret`
+
+示例（POSIX shell）：
+```axum-sqlx/README.zh.md#L1-20
+export APP__DATABASE__HOST=127.0.0.1
+export APP__SERVER__PORT=8080
+export ENVIRONMENT=production
+```
+
+### 仓库中 `setting/` 的示例文件
+仓库自带示例配置文件（请根据实际部署需求修改并避免提交 secrets）：
+- `setting/default.toml` — 基础默认配置
+- `setting/development.toml` — 开发环境覆盖（示例包含 server、database、jwt 等字段）
+- `setting/production.toml` — 生产环境覆盖（示例）
+- `setting/test.toml` — 测试环境覆盖（示例）
+
+示例片段（节选自 `setting/development.toml`）：
+```axum-sqlx/setting/development.toml#L1-40
+debug = true
+profile = "development"
+[tracing]
+log_level = "info"
+
+[server]
+host = "0.0.0.0"
+port = 3000
+
+[database]
+username = "postgres"
+password = "jinykpgsql"
+host = "49.234.28.219"
+port = 5_432
+database_name = "blog"
+
+[jwt]
+secret= "thisismysecret"
+expired = 6
+```
+
+### 安全建议
+- 示例 TOML 文件仅用于本地开发。不要在仓库中保存真实凭据或生产密钥。
+- 将敏感信息通过环境变量注入 CI 或运行环境，或使用专门的密钥/凭据管理服务。
+
+如果你愿意，我可以：
+- 在 README 中加入几个常用的 `APP__...` 覆盖示例（中英文两版）；
+- 生成一个不包含密钥的 `setting/production.toml` 模板；
+- 在 `.env.example` 中增加关于 `setting/` 与环境变量如何协作的简短说明。
 
 ## 迁移文件位置与示例
 所有 SQL 迁移文件位于：

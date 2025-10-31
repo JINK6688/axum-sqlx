@@ -46,6 +46,7 @@ where
         .with_target(true)
         .with_thread_ids(true)
         .with_thread_names(true)
+        .with_line_number(true)
         .with_ansi(true)
         .compact();
 

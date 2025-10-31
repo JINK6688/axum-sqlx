@@ -15,9 +15,9 @@ use crate::user;
 pub fn api_route(state: AppState) -> Router {
     let auth_route_with_middleware = middleware::apply(auth_route(state));
     Router::new()
-        .merge(none_auth_route())  // 先合并无需认证的路由
-        .merge(auth_route_with_middleware)       // 再合并需要认证的路由（带中间件）
-        .fallback(fallback_handler)
+        .merge(none_auth_route())  // first merge none_auth  route
+        .merge(auth_route_with_middleware)       //  merge auth route
+
 }
 
 pub fn none_auth_route() -> Router {
@@ -32,6 +32,7 @@ pub fn auth_route(state: AppState) -> Router {
         .route("/users/:id", get(user::get_user).delete(user::del_user))
         .route("/example/user", get(other_health::example_user_info))
         .with_state(state)
+        .fallback(fallback_handler)
 }
 
 /// Fallback handler for unmatched routes
