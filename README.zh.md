@@ -207,10 +207,10 @@ port = 3000
 
 [database]
 username = "postgres"
-password = "jinykpgsql"
-host = "49.234.28.219"
+password = "password"
+host = "127.0.0.1"
 port = 5_432
-database_name = "blog"
+database_name = "xxxx"
 
 [jwt]
 secret= "thisismysecret"
